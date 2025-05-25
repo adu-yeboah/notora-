@@ -1,4 +1,4 @@
-export type ThemeType = {
-  "theme": Record<string, string>,
-  "toggleTheme":  () => void,
-};
+export interface ThemeType {
+  themeprop: any; 
+  setThemeProp: any;
+}

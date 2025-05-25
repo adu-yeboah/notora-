@@ -1,24 +1,48 @@
-import React from 'react';
-import { View, Text, Switch, Button } from 'react-native';
-import { useTheme } from '../hooks/useTheme';
-
+import React, { useContext } from "react";
+import { View, Text, Switch } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { ThemeContext } from "../context/themeContext";
 
 const Settings = () => {
-  const { theme, toggleTheme } = useTheme();  
+  const { themeprop, setThemeProp } = useContext(ThemeContext);
+
+  const toggleTheme = () => {
+    setThemeProp(themeprop === "dark" ? "light" : "dark");
+  };
+
+  const navigation = useNavigation();
+  const handleBack = () => {
+    navigation.goBack();
+  };
 
   return (
-    <View className={`flex-1 p-4 `}>
-      <Text className={`text-xl font-bold text-text`}>Settings</Text>
-      <View className="flex-row justify-between my-4">
-        <Text className={`text-lg `}>Dark Mode</Text>
+    <View className="flex-1 p-4 bg-[var(--color-background)]">
+      <View className="flex flex-row gap-4 items-center">
+        <Ionicons
+          name="arrow-back-sharp"
+          size={24}
+          color={themeprop["--color-accent"]} 
+          onPress={handleBack}
+        />
+        <Text className="text-[var(--color-text)] font-bold text-2xl">
+          Settings
+        </Text>
+      </View>
+      <View className="flex-row justify-between items-center my-4">
+        <Text className="text-lg text-[var(--color-text)]">
+          {themeprop.charAt(0).toUpperCase() + themeprop.slice(1)} Mode
+        </Text>
         <Switch
-          value={theme.theme}
-          onValueChange={() => {
-            toggleTheme();
+          value={themeprop === "dark"} 
+          onValueChange={toggleTheme}
+          trackColor={{
+            false: "gray",
+            true: "blue",
           }}
+          thumbColor="orange"
         />
       </View>
-     
     </View>
   );
 };

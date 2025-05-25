@@ -4,7 +4,6 @@ import { getNotes, } from '../utils/storage';
 import { Ionicons } from '@expo/vector-icons';
 import NoteItem from '../components/noteItem';
 import { NoteType } from '../types/note';
-import { useTheme } from '../hooks/useTheme';
 
 interface HomeProps {
   navigation: any;
@@ -14,7 +13,6 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
   const [notes, setNotes] = useState<NoteType[]>([]);
   const [search, setSearch] = useState('Search notes');
 
-    const theme = useTheme()
   
   useEffect(() => {
     const loadNotes = async () => {
@@ -45,16 +43,16 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
            />
 
         <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-          <Ionicons name="settings" size={24} color={theme.theme["--color-accent"]}/>
+          <Ionicons name="settings" size={24} color={""}/>
         </TouchableOpacity>
       </View>
 
       <View
-        className='p-2 flex flex-row gap-1 bg-gray-200 rounded-md w-full items-center mt-5'
+        className='p-2 relative flex flex-row gap-1 bg-gray-200 rounded-md w-full items-center mt-5'
         >
           <Ionicons name='search' size={24}/>
         <TextInput
-          className=" p-2 rounded-lg my-2] "
+          className=" p-2 rounded-lg  w-full overflow-hidden"
           placeholder="Search"
           placeholderTextColor='#a0a0a0'
           value={search}

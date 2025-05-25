@@ -1,22 +1,53 @@
- import React, { createContext, ReactNode } from "react";
-import { useTheme } from "../hooks/useTheme";
+import React, { createContext, ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 import { ThemeType } from "../types/theme";
+import { useColorScheme, vars } from "nativewind";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const ThemeContext = createContext<ThemeType | undefined | any>(undefined);
+export const ThemeContext = createContext<ThemeType | undefined>(undefined);
 
-interface ThemeProviderProps  {
+interface ThemeProviderProps {
   children: ReactNode;
-};
+}
 
-export const ThemeProvider = ({ children } : ThemeProviderProps) => {
-  const themeData = useTheme();
+export const ThemeProvider = ({ children }: ThemeProviderProps) => {
+
+  const [themeprop, setThemeProp] = useState<string>("dark")
+  const themes = {
+    dark: vars({
+      "--color-background": "#1c2526",
+      "--color-text": "#fff",
+      "--color-secondaryText": "#aaa",
+      "--color-border": "#d6ccc2",
+      "--color-accent": "#007bff",
+    }),
+    light: vars({
+      "--color-background": "#fff",
+      "--color-text": "#000",
+      "--color-secondaryText": "#666",
+      "--color-border": "#ccc",
+      "--color-accent": "#007bff",
+    })
+  }
+
+  useEffect(() => {
+    AsyncStorage.setItem("theme", themeprop);
+  }, [themeprop])
+
+  const values ={
+    themeprop,
+    setThemeProp,
+  }
 
   return (
-    <ThemeContext.Provider value={themeData}>
-      <View style={themeData.theme} className={`flex-1 ${themeData.theme["--color-background"] === "#1c2526" ? "dark" : "white"}`}>
+    <ThemeContext.Provider value={values}>
+      <SafeAreaView
+        className="flex-1"
+       style={themes[themeprop]}
+      >
         {children}
-      </View>
+      </SafeAreaView>
     </ThemeContext.Provider>
   );
 };

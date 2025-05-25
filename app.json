@@ -27,6 +27,7 @@
     },
     "plugins": [
       "expo-sqlite"
-    ]
+    ],
+    "fastRefresh": true
   }
 }
