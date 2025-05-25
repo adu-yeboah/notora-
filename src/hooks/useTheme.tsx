@@ -8,7 +8,7 @@ const defaultTheme = vars({
   "--color-background": "#1c2526",
   "--color-text": "#fff",
   "--color-secondaryText": "#aaa",
-  "--color-border": "#333",
+  "--color-border": "#c",
   "--color-accent": "#007bff",
 });
 

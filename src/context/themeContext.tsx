@@ -14,7 +14,7 @@ export const ThemeProvider = ({ children } : ThemeProviderProps) => {
 
   return (
     <ThemeContext.Provider value={themeData}>
-      <View style={themeData.theme} className={`flex-1 ${themeData.theme["--color-background"] === "#1c2526" ? "dark" : ""}`}>
+      <View style={themeData.theme} className={`flex-1 ${themeData.theme["--color-background"] === "#1c2526" ? "dark" : "white"}`}>
         {children}
       </View>
     </ThemeContext.Provider>
