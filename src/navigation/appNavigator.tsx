@@ -6,6 +6,7 @@ import Recorder from "../screens/Recorder";
 import SlideImporter from "../screens/SlideImporter";
 import Settings from "../screens/Settings";
 import NoteEditor from "../screens/NoteEditor";
+import Add from "../screens/Add";
 // import { NoteEditor } from "../screens/NoteEditor";
 
 
@@ -22,6 +23,8 @@ export default function AppNavigator() {
             <Stack.Screen name="Recorder" component={Recorder} />
             <Stack.Screen name="SlideImporter" component={SlideImporter} />
             <Stack.Screen name="Settings" component={Settings} />
+            <Stack.Screen name="Add" component={Add} />
+
 
         </Stack.Navigator>
     )

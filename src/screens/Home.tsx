@@ -116,7 +116,7 @@ const Home= () => {
       {/* Add Note Button */}
       <TouchableOpacity
         className="absolute bottom-6 right-6 bg-blue-500 rounded-full p-4 shadow-lg"
-        onPress={() => navigation.navigate('NoteEditor', { note: null })}
+        onPress={() => navigation.navigate('Add' as never)}
       >
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
