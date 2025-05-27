@@ -1,10 +1,12 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Home from "../screens/Home";
-import NoteEditor from "../screens/NoteEditor";
+// import NoteEditor from "../screens/NoteEditor";
 import NoteViewer from "../screens/NoteViewer";
 import Recorder from "../screens/Recorder";
 import SlideImporter from "../screens/SlideImporter";
 import Settings from "../screens/Settings";
+import NoteEditor from "../screens/NoteEditor";
+// import { NoteEditor } from "../screens/NoteEditor";
 
 
 export default function AppNavigator() {
