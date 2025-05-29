@@ -11,19 +11,9 @@ interface NoteItemProps {
 const NoteItem: React.FC<NoteItemProps> = ({ note, onPress }) => {
   return (
     <TouchableOpacity onPress={() => onPress(note)} className='border border-border p-4 rounded-lg my-2 h-max'>
-      <Text className='text-lg text-text font-bold'>{note.title}</Text>
+      <Text className='text-lg text-secondaryText font-bold'>{note.title}</Text>
       <Text className=' text-md text-text px line-clamp-2]'>{note.content}</Text>
-      {/* <View className="flex-row mt-2">
-        {note?.tags.map((tag, index) => (
-          <View key={index} className='bg-${theme.colors.accent} rounded px-2 py-1 mr-2'>
-            <Text className="text-white text-[${fontSize - 4}px]">#{tag}</Text>
-          </View>
-        ))}
-      </View> */}
-      <View className="flex-row mt-2">
-        {note?.audioUri && <Ionicons name="play" size={20} color="#3b82f6" style={{ marginRight: 10 }} />}
-        {note?.slideUri && <Ionicons name="image" size={20} color="#3b82f6" />}
-      </View>
+      
     </TouchableOpacity>
   );
 };

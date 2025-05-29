@@ -62,7 +62,7 @@ const Home= () => {
           resizeMode="contain"
           className="h-8 w-32"
         />
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
+        <TouchableOpacity onPress={() => navigation.navigate('Settings' as never)}>
           <Ionicons name="settings" size={24} color="#4b5563" />
         </TouchableOpacity>
       </View>

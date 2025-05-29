@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
-import { View, Text, Switch } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Text, Switch, TouchableOpacity } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { ThemeContext } from "../context/themeContext";
 
@@ -19,12 +19,10 @@ const Settings = () => {
   return (
     <View className="flex-1 p-4 bg-[var(--color-background)]">
       <View className="flex flex-row gap-4 items-center">
-        <Ionicons
-          name="arrow-back-sharp"
-          size={24}
-          color={themeprop["--color-accent"]} 
-          onPress={handleBack}
-        />
+        <TouchableOpacity onPress={handleBack}>
+          <MaterialCommunityIcons name="keyboard-backspace" size={40} color="grey" />
+        </TouchableOpacity>
+
         <Text className="text-[var(--color-text)] font-bold text-2xl">
           Settings
         </Text>
@@ -34,7 +32,7 @@ const Settings = () => {
           {themeprop.charAt(0).toUpperCase() + themeprop.slice(1)} Mode
         </Text>
         <Switch
-          value={themeprop === "dark"} 
+          value={themeprop === "dark"}
           onValueChange={toggleTheme}
           trackColor={{
             false: "gray",

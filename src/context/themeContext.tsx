@@ -1,9 +1,10 @@
 import React, { createContext, ReactNode, useEffect, useState } from "react";
-import { View } from "react-native";
 import { ThemeType } from "../types/theme";
-import { useColorScheme, vars } from "nativewind";
+import { vars } from "nativewind";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { StatusBar } from "react-native";
+// import { StatusBar } from "expo-status-bar";
 
 export const ThemeContext = createContext<ThemeType | undefined>(undefined);
 
@@ -14,6 +15,7 @@ interface ThemeProviderProps {
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {
 
   const [themeprop, setThemeProp] = useState<string>("dark")
+
   const themes = {
     dark: vars({
       "--color-background": "#1c2526",
@@ -33,19 +35,20 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
 
   useEffect(() => {
     AsyncStorage.setItem("theme", themeprop);
+    console.log(themeprop);
+    
   }, [themeprop])
 
-  const values ={
+
+  const values = {
     themeprop,
     setThemeProp,
   }
 
   return (
     <ThemeContext.Provider value={values}>
-      <SafeAreaView
-        className="flex-1"
-       style={themes[themeprop]}
-      >
+      <StatusBar  backgroundColor={themeprop === "dark" ? "#1c2526" : "#fff"}/>
+      <SafeAreaView className="flex-1" style={themes[themeprop]}>
         {children}
       </SafeAreaView>
     </ThemeContext.Provider>

@@ -1,65 +1,159 @@
-import { View, Text, Image, TouchableOpacity } from 'react-native';
-import React from 'react';
-import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { View, Text, Image, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { FontAwesome5, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+
+// 1. Define your root stack param list
+type RootStackParamList = {
+  DocumentViewer: {
+    fileUri: string;
+    fileName: string;
+    fileType: string;
+  };
+  Recorder: undefined;
+  NoteEditor: { note: null };
+  Settings: undefined;
+};
+
+// 2. Create navigation prop type
+type AddScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+
+const MAX_FILE_SIZE_MB = 10;
 
 export default function Add() {
-    const navigation = useNavigation();
+  // 3. Use the properly typed navigation hook
+  const navigation = useNavigation<AddScreenNavigationProp>();
+  const [isLoading, setIsLoading] = useState(false);
 
-    return (
-        <View className="flex-1 bg-background p-4">
-            {/* Header with Logo and Settings */}
-            <View className="flex-row justify-between items-center mb-6">
-                <Image
-                    source={require("../../assets/logo.png")}
-                    resizeMode="contain"
-                    className="h-8 w-32"
-                />
-                <TouchableOpacity onPress={() => navigation.navigate('Settings' as never)}>
-                    <Ionicons name="settings" size={24} color="#4b5563" />
-                </TouchableOpacity>
-            </View>
+  const pickDocument = async () => {
+    console.log('Starting document picker...');
+    setIsLoading(true);
+    
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+          'text/plain',
+        ],
+        copyToCacheDirectory: true,
+      });
 
+      console.log('Document picker result:', result);
 
-            {/* Grid of Options */}
-            <View className="flex-row flex-wrap justify-between p-2">
-                {/* Record Button */}
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('Recorder' as never)}
-                    className="w-[48%] bg-white rounded-xl p-6 mb-4 shadow-lg items-center border border-gray-200 hover:border-blue-300"
-                >
-                    <FontAwesome name="microphone" size={32} color="#3b82f6" />
-                    <Text className="mt-3 text-lg font-semibold text-gray-800">Record</Text>
-                </TouchableOpacity>
+      if (!result.canceled && result.assets?.length) {
+        const file = result.assets[0];
+        
+        // Validate file size
+        if (file.size && file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+          Alert.alert('Error', `File size exceeds ${MAX_FILE_SIZE_MB}MB limit`);
+          return;
+        }
 
-                {/* Add Note Button */}
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('NoteEditor', { note: null })}
-                    className="w-[48%] bg-white rounded-xl p-6 mb-4 shadow-lg items-center border border-gray-200 hover:border-blue-300"
-                >
-                    <MaterialIcons name="note-add" size={32} color="#3b82f6" />
-                    <Text className="mt-3 text-lg font-semibold text-gray-800">Add Note</Text>
-                </TouchableOpacity>
+        let fileUri = file.uri;
+        
+        // Handle Android content URIs
+        if (Platform.OS === 'android' && fileUri.startsWith('content://')) {
+          try {
+            const cacheDir = FileSystem.cacheDirectory;
+            const newPath = `${cacheDir}${file.name}`;
+            
+            await FileSystem.copyAsync({
+              from: fileUri,
+              to: newPath,
+            });
+            fileUri = newPath;
+          } catch (copyError) {
+            console.error('File copy error:', copyError);
+            Alert.alert('Error', 'Failed to prepare document for viewing');
+            return;
+          }
+        }
 
-                {/* Import File Button */}
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('Recorder' as never)}
-                    className="w-[48%] bg-white rounded-xl p-6 mb-4 shadow-lg items-center border border-gray-200 hover:border-blue-300"
-                >
-                    <FontAwesome5 name="file-import" size={32} color="#3b82f6" />
-                    <Text className="mt-3 text-lg font-semibold text-gray-800">Import File</Text>
-                </TouchableOpacity>
+        // Ensure proper URI format
+        if (!fileUri.startsWith('file://') && !fileUri.startsWith('content://')) {
+          fileUri = `file://${fileUri}`;
+        }
 
-                {/* Duplicate Record Button (can be replaced with another feature) */}
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('Recorder' as never)}
-                    className="w-[48%] bg-white rounded-xl p-6 mb-4 shadow-lg items-center border border-gray-200 hover:border-blue-300"
-                >
-                    <FontAwesome name="microphone" size={32} color="#3b82f6" />
-                    <Text className="mt-3 text-lg font-semibold text-gray-800">Record</Text>
-                </TouchableOpacity>
-            </View>
+        // Navigate with file data
+        navigation.navigate('DocumentViewer', {
+          fileUri,
+          fileName: file.name,
+          fileType: file.mimeType || 'application/octet-stream'
+        });
+      }
+    } catch (err) {
+      console.error('Document picker error:', err);
+      Alert.alert('Error', 'Failed to pick document');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    navigation.goBack();
+  };
+
+  return (
+    <View className="flex-1 bg-background p-4">
+      {/* Header with Back Button and Logo */}
+      <View className="flex-row justify-between items-center mb-6">
+        <View className="flex flex-row gap-2 items-center">
+          <TouchableOpacity onPress={handleBack}>
+            <MaterialCommunityIcons name="keyboard-backspace" size={40} color="grey" />
+          </TouchableOpacity>
+          <Image
+            source={require("../../assets/logo.png")}
+            resizeMode="contain"
+            className="h-8 w-32"
+          />
         </View>
-    );
+      </View>
+
+      {/* Action Buttons Grid */}
+      <View className="flex-row flex-wrap justify-between p-2">
+        {/* Record Button */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Recorder')}
+          className="w-[48%] bg-white rounded-xl p-6 mb-4 shadow-lg items-center border border-border"
+          activeOpacity={0.7}
+          disabled={isLoading}
+        >
+          <FontAwesome name="microphone" size={32} color="#3b82f6" />
+          <Text className="mt-3 text-lg font-semibold text-gray-800">Record</Text>
+        </TouchableOpacity>
+
+        {/* Add Note Button */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('NoteEditor', { note: null })}
+          className="w-[48%] bg-white rounded-xl p-6 mb-4 shadow-lg items-center border border-border"
+          activeOpacity={0.7}
+          disabled={isLoading}
+        >
+          <MaterialIcons name="note-add" size={32} color="#3b82f6" />
+          <Text className="mt-3 text-lg font-semibold text-gray-800">Add Note</Text>
+        </TouchableOpacity>
+
+        {/* Import File Button with Loading State */}
+        <TouchableOpacity
+          onPress={pickDocument}
+          className="w-[48%] bg-white rounded-xl p-6 mb-4 shadow-lg items-center border border-border relative"
+          activeOpacity={0.7}
+          disabled={isLoading}
+        >
+          {isLoading && (
+            <View className="absolute inset-0 bg-black/20 rounded-xl justify-center items-center">
+              <ActivityIndicator size="large" color="#3b82f6" />
+            </View>
+          )}
+          <FontAwesome5 name="file-import" size={32} color="#3b82f6" />
+          <Text className="mt-3 text-lg font-semibold text-gray-800">Import</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }

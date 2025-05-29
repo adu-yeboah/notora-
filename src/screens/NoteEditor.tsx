@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
-import * as Speech from 'expo-speech';
-import * as DocumentPicker from 'expo-document-picker';
 import { saveNote } from '../utils/storage';
 import { NoteType } from '../types/note';
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -51,7 +49,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
   const [title, setTitle] = useState(note?.title || '');
   const [tags, setTags] = useState(note?.tags?.join(', ') || '');
   const [audioUri, setAudioUri] = useState<string | undefined>(note?.audioUri);
-  const [slideUri, setSlideUri] = useState<string | undefined>(note?.slideUri);
   
   // Current selection and formatting
   const [selection, setSelection] = useState({ start: 0, end: 0 });
@@ -264,11 +261,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
     );
   };
 
-  // Text-to-speech function
-  const readAloud = () => {
-    Speech.speak(formattedText.text, { language: 'en', rate: 1.0 });
-  };
-
   // Undo function
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -289,14 +281,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
-  // Document picker for slides
-  const pickSlide = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
-    if (result.type === 'success') {
-      setSlideUri(result.uri);
-    }
-  };
-
   // Save note function with formatted content
   const handleSave = async () => {
     const newNote: NoteType = {
@@ -306,7 +290,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
       formattedContent: JSON.stringify(formattedText),
       tags: tags.split(',').map(tag => tag.trim()),
       audioUri,
-      slideUri,
       timestamp: new Date().toISOString(),
     };
     await saveNote(newNote);
@@ -315,14 +298,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
 
   const handleBack = () => {
     navigation.goBack();
-  };
-
-  const clearContent = () => {
-    setFormattedText({
-      text: "",
-      formats: [],
-    });
-    setActiveFormat(null);
   };
 
   return (
@@ -337,7 +312,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
         <View className="flex flex-row gap-4 items-center">
           <TouchableOpacity onPress={handleUndo} disabled={!canUndo}>
             <Ionicons
-              name="arrow-undo"
+              name="return-up-back-outline"
               size={24}
               color="#8a817c"
               style={{ opacity: canUndo ? 1 : 0.5 }}
@@ -346,7 +321,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
 
           <TouchableOpacity onPress={handleRedo} disabled={!canRedo}>
             <Ionicons
-              name="arrow-redo"
+              name="return-up-forward-outline"
               size={24}
               color="#8a817c"
               style={{ opacity: canRedo ? 1 : 0.5 }}
@@ -391,31 +366,31 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
       </View>
 
       {/* Formatting Toolbar */}
-      <View className="flex-col gap-2 justify-between items-center p-4 border-t border-gray-200 bg-gray-50">
+      <View className="flex-col justify-between items-center p-4 border-t border-border bg-gray-700">
         {/* Text Formatting */}
         <View className="flex-row w-full justify-evenly">
           <TouchableOpacity onPress={() => applyFormatting({ bold: !currentFormat.bold })}>
-            <Text className={`font-bold text-h2 ${currentFormat.bold ? "text-blue-500" : "text-gray-700"}`}>B</Text>
+            <Text className={`font-bold text-h2 ${currentFormat.bold ? "text-blue-500" : "text-white"}`}>B</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => applyFormatting({ underline: !currentFormat.underline })}>
-            <Text className={`underline text-h2 ${currentFormat.underline ? "text-blue-500" : "text-gray-700"}`}>U</Text>
+            <Text className={`underline text-h2 ${currentFormat.underline ? "text-blue-500" : "text-white"}`}>U</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => applyFormatting({ italic: !currentFormat.italic })}>
-            <Text className={`italic text-h2 ${currentFormat.italic ? "text-blue-500" : "text-gray-700"}`}>/</Text>
+            <Text className={`italic text-h2 ${currentFormat.italic ? "text-blue-500" : "text-white"}`}>/</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => applyFormatting({ heading: currentFormat.heading === "H1" ? "" : "H1" })}>
-            <Text className={`font-bold ${currentFormat.heading === "H1" ? "text-blue-500" : "text-gray-700"}`}>H1</Text>
+            <Text className={`font-bold ${currentFormat.heading === "H1" ? "text-blue-500" : "text-white"}`}>H1</Text>
           </TouchableOpacity>
           
           <TouchableOpacity onPress={() => applyFormatting({ heading: currentFormat.heading === "H2" ? "" : "H2" })}>
-            <Text className={`font-bold ${currentFormat.heading === "H2" ? "text-blue-500" : "text-gray-700"}`}>H2</Text>
+            <Text className={`font-bold ${currentFormat.heading === "H2" ? "text-blue-500" : "text-white"}`}>H2</Text>
           </TouchableOpacity>
           
           <TouchableOpacity onPress={() => applyFormatting({ heading: currentFormat.heading === "H3" ? "" : "H3" })}>
-            <Text className={`font-bold ${currentFormat.heading === "H3" ? "text-blue-500" : "text-gray-700"}`}>H3</Text>
+            <Text className={`font-bold ${currentFormat.heading === "H3" ? "text-blue-500" : "text-white"}`}>H3</Text>
           </TouchableOpacity>
           
           <TouchableOpacity onPress={clearFormatting}>
@@ -434,7 +409,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
 
         {/* Color Options */}
         <View className="flex-row w-full justify-evenly mt-2">
-          {["#000000", "#3b82f6", "#10b981", "#ef4444", "#8b5cf6"].map(color => (
+          {["#000000", "#3b82f6", "#10b981", "#ef4444", "#fff"].map(color => (
             <TouchableOpacity
               key={color}
               className={`w-6 h-6 rounded-full ${color === currentFormat.color ? "border-2 border-blue-500" : ""}`}
@@ -442,33 +417,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
               onPress={() => applyFormatting({ color })}
             />
           ))}
-        </View>
-
-        {/* Action Buttons */}
-        <View className="flex-row w-full justify-evenly mt-4">
-          <TouchableOpacity 
-            className="flex-row items-center gap-1 p-2 rounded-lg bg-gray-200"
-            onPress={readAloud}
-          >
-            <MaterialCommunityIcons name="text-to-speech" size={20} color="#8a817c" />
-            <Text className="text-gray-700">Read Aloud</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className="flex-row items-center gap-1 p-2 rounded-lg bg-gray-200"
-            onPress={pickSlide}
-          >
-            <MaterialCommunityIcons name="file-import" size={20} color="#8a817c" />
-            <Text className="text-gray-700">Import Slide</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className="flex-row items-center gap-1 p-2 rounded-lg bg-gray-200"
-            onPress={clearContent}
-          >
-            <MaterialCommunityIcons name="broom" size={20} color="#8a817c" />
-            <Text className="text-gray-700">Clear</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>

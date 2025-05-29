@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import * as Speech from 'expo-speech';
-import * as Audio from 'expo-av';
+import * as Audio from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 import { deleteNote } from '../utils/storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -19,7 +20,10 @@ const NoteViewer = ({ route }) => {
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechProgress, setSpeechProgress] = useState(0);
+  const [currentSentence, setCurrentSentence] = useState('');
   const speechProgressRef = useRef(0);
+  const sentencesRef = useRef<string[]>([]);
+  const currentIndexRef = useRef(0);
   
   // Parse formatted content
   const formattedContent = note?.formattedContent ? JSON.parse(note.formattedContent) : null;
@@ -33,6 +37,14 @@ const NoteViewer = ({ route }) => {
       </View>
     );
   }
+
+  // Initialize sentences when note changes
+  useEffect(() => {
+    if (note?.content) {
+      sentencesRef.current = note.content.split(/(?<=[.!?])\s+/);
+      currentIndexRef.current = 0;
+    }
+  }, [note]);
 
   // Clean up resources
   useEffect(() => {
@@ -85,19 +97,19 @@ const NoteViewer = ({ route }) => {
         console.error('Error stopping speech:', error);
       }
       setIsSpeaking(false);
+      setCurrentSentence('');
       return;
     }
 
     setIsSpeaking(true);
     setSpeechProgress(0);
     speechProgressRef.current = 0;
+    currentIndexRef.current = 0;
 
     try {
-      const sentences = note.content.split(/(?<=[.!?])\s+/);
-      let currentWordCount = 0;
-
-      for (const sentence of sentences) {
-        if (!isSpeaking) break;
+      while (currentIndexRef.current < sentencesRef.current.length && isSpeaking) {
+        const sentence = sentencesRef.current[currentIndexRef.current];
+        setCurrentSentence(sentence);
         
         const wordCount = sentence.split(' ').length;
         await new Promise<void>(async (resolve) => {
@@ -105,13 +117,19 @@ const NoteViewer = ({ route }) => {
             await Speech.speak(sentence, {
               language: 'en',
               rate: playbackRate,
-              onDone: resolve,
+              onDone: () => {
+                currentIndexRef.current += 1;
+                const wordsSoFar = sentencesRef.current
+                  .slice(0, currentIndexRef.current)
+                  .join(' ')
+                  .split(' ').length;
+                speechProgressRef.current = (wordsSoFar / totalWords) * 100;
+                setSpeechProgress(speechProgressRef.current);
+                resolve();
+              },
               onStopped: resolve,
+              onError: resolve,
             });
-
-            currentWordCount += wordCount;
-            speechProgressRef.current = (currentWordCount / totalWords) * 100;
-            setSpeechProgress(speechProgressRef.current);
           } catch (error) {
             console.error('Error speaking:', error);
             resolve();
@@ -122,56 +140,12 @@ const NoteViewer = ({ route }) => {
       console.error('Error in readAloud:', error);
     } finally {
       setIsSpeaking(false);
+      setCurrentSentence('');
     }
   };
 
-  // Audio playback functions
-  const playAudio = async () => {
-    if (!note?.audioUri) return;
 
-    try {
-      if (sound) {
-        if (isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
-        }
-        return;
-      }
 
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: note.audioUri },
-        { shouldPlay: true },
-        (status) => {
-          if (status.isLoaded) {
-            setDuration(status.durationMillis || 0);
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-              setPosition(0);
-            }
-          }
-        }
-      );
-      setSound(newSound);
-      setIsPlaying(true);
-    } catch (error) {
-      console.error('Error with audio playback:', error);
-      Alert.alert('Error', 'Could not play audio');
-    }
-  };
-
-  const handleSeek = async (value: number) => {
-    try {
-      if (sound) {
-        await sound.setPositionAsync(value);
-        setPosition(value);
-      }
-    } catch (error) {
-      console.error('Error seeking audio:', error);
-    }
-  };
 
   const changePlaybackRate = () => {
     const rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -184,17 +158,25 @@ const NoteViewer = ({ route }) => {
     }
   };
 
+  const handleEdit = () => {
+    navigation.navigate('NoteEditor', { note });
+  };
+
   const exportToPDF = async () => {
     try {
       if (!note?.content) return;
 
+      // Create HTML content with proper structure
       const htmlContent = `
+        <!DOCTYPE html>
         <html>
           <head>
+            <meta charset="UTF-8">
+            <title>${note.title || 'Untitled Note'}</title>
             <style>
-              body { font-family: Arial; padding: 20px; }
+              body { font-family: Arial; padding: 20px; line-height: 1.6; }
               h1 { color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-              .content { margin-top: 20px; line-height: 1.6; white-space: pre-wrap; }
+              .content { white-space: pre-wrap; margin-top: 20px; }
               .tags { margin-top: 20px; }
               .tag { display: inline-block; background: #eee; padding: 3px 8px; border-radius: 3px; margin-right: 5px; }
               .date { color: #666; font-size: 0.9em; margin-top: 20px; }
@@ -213,20 +195,28 @@ const NoteViewer = ({ route }) => {
         </html>
       `;
 
-      const pdfFile = `${FileSystem.documentDirectory}${note.title || 'note'}_${Date.now()}.pdf`;
-      
-      await FileSystem.writeAsStringAsync(pdfFile, htmlContent, {
-        encoding: FileSystem.EncodingType.UTF8,
+      // Use expo-print to generate PDF
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        width: 612,  // 8.5 inches in points (standard US letter width)
+        height: 792, // 11 inches in points (standard US letter height)
+        base64: false
       });
 
+      // Share the generated PDF
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(pdfFile);
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Share Note as PDF',
+          UTI: 'com.adobe.pdf' // iOS only
+        });
       } else {
-        Alert.alert('Success', 'PDF created but sharing not available');
+        Alert.alert('Success', `PDF saved to: ${uri}`);
       }
+
     } catch (error) {
       console.error('Error exporting to PDF:', error);
-      Alert.alert('Error', 'Failed to create PDF');
+      Alert.alert('Error', 'Failed to create PDF: ' + error.message);
     }
   };
 
@@ -240,37 +230,62 @@ const NoteViewer = ({ route }) => {
     }
   };
 
-  // Render formatted text with styles
+  // Highlight currently spoken sentence
   const renderFormattedText = () => {
     if (!formattedContent) {
-      return <Text className="text-base text-gray-800">{note.content}</Text>;
-    }
-
-    return formattedContent.text.split('').map((char, index) => {
-      const format = formattedContent.formats[index] || {
-        bold: false,
-        italic: false,
-        underline: false,
-        heading: "",
-        color: "#000000"
-      };
-
-      const textStyle = [
-        format.color === "#ef4444" ? "text-red-500" : "text-gray-800",
-        format.bold ? "font-bold" : "",
-        format.italic ? "italic" : "",
-        format.underline ? "underline" : "",
-        format.heading === "H1" ? "text-2xl font-bold" : 
-        format.heading === "H2" ? "text-xl font-bold" : 
-        format.heading === "H3" ? "text-lg font-bold" : "text-base"
-      ].join(' ');
-
       return (
-        <Text key={index} className={textStyle}>
-          {char}
+        <Text className="text-base text-gray-800">
+          {note.content.split('\n').map((paragraph, i) => (
+            <Text key={i}>
+              {paragraph.split(' ').map((word, j) => (
+                <Text 
+                  key={j} 
+                  className={
+                    isSpeaking && currentSentence.includes(word) ? 
+                    "bg-yellow-100" : ""
+                  }
+                >
+                  {word}{' '}
+                </Text>
+              ))}
+              {'\n\n'}
+            </Text>
+          ))}
         </Text>
       );
-    });
+    }
+
+    return formattedContent.text.split('\n').map((paragraph, i) => (
+      <Text key={i}>
+        {paragraph.split(' ').map((word, j) => {
+          const format = formattedContent.formats[i] || {
+            bold: false,
+            italic: false,
+            underline: false,
+            heading: "",
+            color: "#000000"
+          };
+
+          const textStyle = [
+            format.color === "#ef4444" ? "text-red-500" : "text-gray-800",
+            format.bold ? "font-bold" : "",
+            format.italic ? "italic" : "",
+            format.underline ? "underline" : "",
+            format.heading === "H1" ? "text-2xl font-bold" : 
+            format.heading === "H2" ? "text-xl font-bold" : 
+            format.heading === "H3" ? "text-lg font-bold" : "text-base",
+            isSpeaking && currentSentence.includes(word) ? "bg-yellow-100" : ""
+          ].join(' ');
+
+          return (
+            <Text key={j} className={textStyle}>
+              {word}{' '}
+            </Text>
+          );
+        })}
+        {'\n\n'}
+      </Text>
+    ));
   };
 
   return (
@@ -280,38 +295,12 @@ const NoteViewer = ({ route }) => {
           {note.title || 'Untitled Note'}
         </Text>
         
-        <View className="flex-row flex-wrap mb-4">
+        <View className="mb-4">
           {renderFormattedText()}
         </View>
-
-        {note.tags?.length > 0 && (
-          <View className="flex-row flex-wrap mb-4">
-            {note.tags.map((tag, index) => (
-              <View key={index} className="bg-gray-200 px-2 py-1 rounded mr-2 mb-2">
-                <Text className="text-gray-700 text-sm">#{tag}</Text>
-              </View>
-            ))}
-          </View>
-        )}
       </ScrollView>
 
-      {note.audioUri && (
-        <View className="mb-4 px-2">
-          <Text className="text-center text-gray-600 mb-2">
-            {formatTime(position)} / {formatTime(duration)}
-          </Text>
-          <Slider
-            minimumValue={0}
-            maximumValue={duration || 1}
-            value={position}
-            onSlidingComplete={handleSeek}
-            minimumTrackTintColor="#3b82f6"
-            maximumTrackTintColor="#d1d5db"
-            thumbTintColor="#3b82f6"
-            disabled={!sound}
-          />
-        </View>
-      )}
+     
 
       {isSpeaking && (
         <View className="mb-4 px-4">
@@ -324,6 +313,12 @@ const NoteViewer = ({ route }) => {
               style={{ width: `${speechProgress}%` }}
             />
           </View>
+
+          <Text className="text-center text-gray-600 mt-2 italic">
+            {currentSentence.length > 50 ? 
+              `${currentSentence.substring(0, 50)}...` : 
+              currentSentence}
+          </Text>
         </View>
       )}
 
@@ -372,6 +367,14 @@ const NoteViewer = ({ route }) => {
           <Text className={`text-xs mt-1 ${(!note.content && !note.audioUri) ? "text-gray-400" : "text-gray-700"}`}>
             {playbackRate}x
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          className="items-center"
+          onPress={handleEdit}
+        >
+          <Ionicons name="create-outline" size={24} color="#3b82f6" />
+          <Text className="text-xs mt-1 text-gray-700">Edit</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
