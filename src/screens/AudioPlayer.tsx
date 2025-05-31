@@ -1,115 +1,183 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
-import Slider from '../components/slider';
+// import Slider from '../components/slider';
+import Heading from '../components/ui/heading';
+import { deleteRecord } from '../utils/storage';
+import { useNavigation } from '@react-navigation/native';
+import { RecordType } from '../types/note';
+import Slider from '@react-native-community/slider';
 
-const AudioPlayer = ({ route, navigation }) => {
-  const { uri, name, onDelete, onRename } = route.params;
-  const player = useAudioPlayer();
+interface AudioPlayerProps {
+  route: {
+    params: RecordType
+  };
+}
+
+const AudioPlayer = ({ route }: AudioPlayerProps) => {
+  const { uri, name, id } = route.params;
+  const navigation = useNavigation()
+
+  const player = useAudioPlayer({ uri });
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(player.duration);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [newName, setNewName] = useState(name);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadAudio = async () => {
+  const [isSeeking, setIsSeeking] = useState(false);
+
+  
+  // Initialize player and set up listeners
+  useMemo(() => {
+    const initializePlayer = async () => {
       try {
-        player.replace({ uri });
-        const status = await player.getStatusAsync();
-        setDuration(status.durationMillis / 1000);
-        
-        const subscription = player.addListener('playbackStatusUpdate', (status) => {
-          setPosition(status.positionMillis / 1000);
-          if (!status.isPlaying && status.didJustFinish) {
-            setIsPlaying(false);
-          }
-        });
-        
-        return () => {
-          subscription.remove();
-        };
+        setDuration(player.duration);
+        setIsLoading(false);
       } catch (error) {
-        console.error('Playback error:', error);
-        Alert.alert('Error', 'Failed to load recording');
+        console.error('Player initialization error:', error);
+        Alert.alert('Error', 'Failed to initialize audio player');
       }
     };
 
-    loadAudio();
+    initializePlayer();
+
+    const updateInterval = setInterval(() => {
+      if (player.playing) {
+        setPosition(player.currentTime);
+      }
+    }, 250);
 
     return () => {
-      player.pause();
+      clearInterval(updateInterval);
+      player.release();
     };
-  }, [uri]);
+  }, []);
 
-  const togglePlayback = async () => {
+  // Handle playback state changes
+  useEffect(() => {
+    console.log("j");
+
+    setIsPlaying(player.playing);
+  }, [player.playing]);
+
+
+  const togglePlayback = () => {
     try {
-      if (isPlaying) {
-        await player.pause();
+      if (player.playing) {
+        player.pause();
       } else {
-        await player.play();
+        player.play();
       }
       setIsPlaying(!isPlaying);
+
     } catch (error) {
-      console.error('Playback toggle error:', error);
+      console.error('Playback error:', error);
+      Alert.alert('Error', 'Failed to toggle playback');
     }
   };
 
   const handleSeek = async (value: number) => {
     try {
-      await player.setPositionAsync(value * 1000);
+      await player.seekTo(value);
+      setPosition(value);
+      setIsSeeking(false);
+      if (isPlaying) {
+        await player.play();
+      }
     } catch (error) {
       console.error('Seek error:', error);
     }
   };
 
-  const changePlaybackRate = async (rate: number) => {
-    try {
-      await player.setRateAsync(rate, true);
-      setPlaybackRate(rate);
-    } catch (error) {
-      console.error('Rate change error:', error);
+  const handleSliderValueChange = (value: number) => {
+    setIsSeeking(true);
+    setPosition(value);
+  };
+
+  const handleSliderSlidingStart = () => {
+    setIsSeeking(true);
+    if (isPlaying) {
+      player.pause();
     }
   };
 
-  const handleDelete = () => {
+
+
+  const changePlaybackRate = async (rate: number) => {
+    try {
+      await player.setPlaybackRate(rate);
+      setPlaybackRate(rate);
+    } catch (error) {
+      console.error('Playback rate error:', error);
+    }
+  };
+
+  const handleDelete = async () => {
     Alert.alert(
       'Delete Recording',
       'Are you sure you want to delete this recording?',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => {
-          onDelete();
-          navigation.goBack();
-        }},
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteRecord(id);
+              navigation.goBack();
+            } catch (error) {
+              console.error('Delete error:', error);
+              Alert.alert('Error', 'Failed to delete recording');
+            }
+          },
+        },
       ]
     );
   };
 
-  const handleRename = () => {
-    onRename(newName);
-    setShowRenameModal(false);
+  const handleRename = async () => {
+    if (!newName.trim()) {
+      Alert.alert('Error', 'Please enter a valid name');
+      return;
+    }
+
+    // try {
+    //   await updateRecord(id, { name: newName });
+    //   setShowRenameModal(false);
+    //   navigation.setParams({ name: newName });
+    // } catch (error) {
+    //   console.error('Rename error:', error);
+    //   Alert.alert('Error', 'Failed to rename recording');
+    // }
   };
 
-  return (
-    <View className="flex-1 bg-background p-6">
-      <View className="flex-row justify-between items-center mb-8">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="chevron-left" size={32} color="gray" />
-        </TouchableOpacity>
-        <Text className="text-xl font-semibold">Now Playing</Text>
-        <View style={{ width: 32 }} />
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-background p-4 justify-center items-center">
+        <Text>Loading audio...</Text>
       </View>
+    );
+  }
 
-      <View className="bg-white rounded-xl p-6 shadow-sm mb-8">
-        <Text className="text-2xl font-bold text-center mb-2" numberOfLines={1}>{name}</Text>
-        
+  return (
+    <View className="flex-1 bg-background p-4">
+      <Heading />
+      <View className="bg-secondary rounded-xl p-6 mb-8 flex-1">
+        <Text className="text-2xl font-bold text-center mb-2" numberOfLines={1}>
+          {name}
+        </Text>
+
         <View className="h-24 bg-gray-100 rounded-lg my-6 justify-center items-center">
           <Text className="text-gray-500">Waveform Visualization</Text>
         </View>
-        
+
         <View className="mb-4">
           <View className="flex-row justify-between mb-1">
             <Text>{formatTime(position)}</Text>
@@ -119,27 +187,32 @@ const AudioPlayer = ({ route, navigation }) => {
             value={position}
             minimumValue={0}
             maximumValue={duration}
+            minimumTrackTintColor="#3b82f6"
+            maximumTrackTintColor="#d1d5db"
+            thumbTintColor="#3b82f6"
+            onValueChange={handleSliderValueChange}
+            onSlidingStart={handleSliderSlidingStart}
             onSlidingComplete={handleSeek}
           />
         </View>
-        
+
         <View className="flex-row justify-center items-center space-x-8 mb-6">
-          <TouchableOpacity onPress={() => changePlaybackRate(0.5)}>
-            <Text className={`text-lg ${playbackRate === 0.5 ? 'text-blue-500 font-bold' : 'text-gray-500'}`}>0.5x</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => changePlaybackRate(1.0)}>
-            <Text className={`text-lg ${playbackRate === 1.0 ? 'text-blue-500 font-bold' : 'text-gray-500'}`}>1.0x</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => changePlaybackRate(1.5)}>
-            <Text className={`text-lg ${playbackRate === 1.5 ? 'text-blue-500 font-bold' : 'text-gray-500'}`}>1.5x</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => changePlaybackRate(2.0)}>
-            <Text className={`text-lg ${playbackRate === 2.0 ? 'text-blue-500 font-bold' : 'text-gray-500'}`}>2.0x</Text>
-          </TouchableOpacity>
+          {[0.5, 1.0, 1.5, 2.0].map((rate) => (
+            <TouchableOpacity
+              key={rate.toString()}
+              onPress={() => changePlaybackRate(rate)}
+            >
+              <Text
+                className={`text-lg ${playbackRate === rate ? 'text-blue-500 font-bold' : 'text-gray-500'}`}
+              >
+                {rate}x
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-        
+
         <View className="flex-row justify-center items-center space-x-12">
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-blue-500 p-4 rounded-full"
             onPress={togglePlayback}
           >
@@ -147,24 +220,25 @@ const AudioPlayer = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
-      
-      <View className="flex-row justify-center space-x-8">
-        <TouchableOpacity 
+
+      <View className="flex-row justify-around">
+        <TouchableOpacity
           className="flex items-center"
           onPress={() => setShowRenameModal(true)}
         >
           <Ionicons name="pencil-outline" size={24} color="gray" />
           <Text className="text-gray-600 mt-1">Rename</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+
+        <TouchableOpacity
           className="flex items-center"
           onPress={handleDelete}
         >
           <Ionicons name="trash-outline" size={24} color="red" />
-          <Text className="text-red-500 mt-1">Delete</Text>
+          <Text className="text-red-600 mt-1">Delete</Text>
         </TouchableOpacity>
       </View>
-      
+
       <RenameModal
         visible={showRenameModal}
         onClose={() => setShowRenameModal(false)}
@@ -174,15 +248,18 @@ const AudioPlayer = ({ route, navigation }) => {
       />
     </View>
   );
+}
+
+interface RenameModalProps {
+  visible: boolean;
+  onClose: () => void;
+  name: string;
+  onChangeName: (text: string) => void;
+  onSave: () => void;
 };
 
-const RenameModal = ({ visible, onClose, name, onChangeName, onSave }) => (
-  <Modal
-    visible={visible}
-    transparent={true}
-    animationType="slide"
-    onRequestClose={onClose}
-  >
+const RenameModal = ({ visible, onClose, name, onChangeName, onSave }: RenameModalProps) => (
+  <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
     <View className="flex-1 justify-center items-center bg-black/50">
       <View className="bg-white p-6 rounded-lg w-4/5">
         <Text className="text-lg font-semibold mb-4">Rename recording</Text>

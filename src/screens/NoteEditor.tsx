@@ -1,25 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
 import { saveNote } from '../utils/storage';
-import { NoteType } from '../types/note';
+import { FormattedText, NoteType, TextFormat } from '../types/note';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { debounce } from '../hooks/useDebounce';
 
-interface TextFormat {
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-  heading: "H1" | "H2" | "H3" | "";
-  color: string;
-}
 
-interface FormattedText {
-  text: string;
-  formats: TextFormat[];
-}
 
 interface NoteEditorProps {
   route: { params: { note?: NoteType } };
@@ -32,7 +21,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ route }) => {
   
   // Parse initial content if note exists
   const initialFormattedText: FormattedText = note?.formattedContent 
-    ? JSON.parse(note.formattedContent)
+    ? JSON.parse(note?.formattedContent as unknown as string)
     : {
         text: note?.content || '',
         formats: Array((note?.content || '').length).fill({

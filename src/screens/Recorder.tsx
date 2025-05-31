@@ -1,16 +1,20 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Alert, Image, TextInput, Modal } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
-import { useAudioRecorder, RecordingPresets } from 'expo-audio';
+import { useAudioRecorder, RecordingPresets, AudioModule } from 'expo-audio';
 import { useNavigation } from '@react-navigation/native';
-import PlaybackScreen from './PlaybackScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import uuid from 'react-native-uuid';
+import { deleteRecord, getRecords, saveRecord } from '../utils/storage';
+import Heading from '../components/ui/heading';
 
 interface RecordingData {
+  id: string;
   uri: string;
   name: string;
   duration: number;
-  date: string;
+  timestamp: string;
 }
 
 const AudioRecorder = () => {
@@ -25,23 +29,22 @@ const AudioRecorder = () => {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const navigation = useNavigation();
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
 
-  const ensureDirExists = async () => {
-    const dir = `${FileSystem.documentDirectory}recordings`;
-    const dirInfo = await FileSystem.getInfoAsync(dir);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-    }
-  };
+  useMemo(() => {
+    const loadRecordings = async () => {
+      try {
+        const savedRecordings = await getRecords();
+        setRecordings(savedRecordings);
+      } catch (error) {
+        console.error('Error loading recordings:', error);
+      }
+    };
 
-  useEffect(() => {
+    loadRecordings();
+
+    // Request Permission
     const requestPermissions = async () => {
-      const status = await Audio.requestRecordingPermissionsAsync();
+      const status = await AudioModule.getRecordingPermissionsAsync();
       if (!status.granted) {
         Alert.alert('Permission Denied', 'Microphone access is required.');
       }
@@ -69,6 +72,20 @@ const AudioRecorder = () => {
       cleanup();
     };
   }, []);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const ensureDirExists = async () => {
+    const dir = `${FileSystem.documentDirectory}recordings`;
+    const dirInfo = await FileSystem.getInfoAsync(dir);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+    }
+  };
 
   const startRecording = async () => {
     try {
@@ -108,65 +125,84 @@ const AudioRecorder = () => {
     }
   };
 
-  const saveRecordingWithTitle = () => {
+  const saveRecordingWithTitle = async () => {
     if (!newRecordingUri || !recordingTitle.trim()) return;
 
+
+
     const newRecording: RecordingData = {
+      id: uuid.v4(),
       uri: newRecordingUri,
       name: recordingTitle,
       duration: recordingTime,
-      date: new Date().toLocaleString(),
+      timestamp: new Date().toISOString(),
     };
 
-    setRecordings(prev => [newRecording, ...prev]);
-    setRecordingTitle('');
-    setNewRecordingUri(null);
-    setShowTitleModal(false);
+
+    try {
+      // Save to local state
+      setRecordings(prev => [newRecording, ...prev]);
+
+      // Save to AsyncStorage
+      await saveRecord(newRecording)
+      
+
+      setRecordingTitle('');
+      setNewRecordingUri(null);
+      setShowTitleModal(false);
+    } catch (error) {
+      console.error('Error saving recording:', error);
+      Alert.alert('Error', 'Failed to save recording');
+    }
   };
 
-  const playRecording = (uri: string, name: string) => {
-    navigation.navigate('AudioPlayer', { 
-      uri, 
-      name,
-      onDelete: () => deleteRecording(uri),
-      onRename: (newName: string) => renameRecording(uri, newName)
+  const playRecording = (recording: RecordingData) => {
+    navigation.navigate('AudioPlayer', {
+      uri: recording.uri,
+      name: recording.name,
+      id: recording.id
     });
   };
 
-  const deleteRecording = async (uri: string) => {
+  const deleteRecording = async (id: string) => {
     try {
-      await FileSystem.deleteAsync(uri);
-      setRecordings(prev => prev.filter(r => r.uri !== uri));
+      await deleteRecord(id);
+
+      // Delete from local state
+      setRecordings(prev => prev.filter(r => r.id !== id));
+
+      // Optionally delete the actual file
+      const recordingToDelete = recordings.find(r => r.id === id);
+      if (recordingToDelete) {
+        await FileSystem.deleteAsync(recordingToDelete.uri).catch(e => console.log('File delete error:', e));
+      }
     } catch (error) {
       console.error('Delete error:', error);
       Alert.alert('Error', 'Failed to delete recording');
     }
   };
 
-  const renameRecording = (uri: string, newName: string) => {
-    setRecordings(prev => 
-      prev.map(r => r.uri === uri ? { ...r, name: newName } : r)
-    );
+  const renameRecording = async (id: string, newName: string) => {
+    try {
+      // Update in AsyncStorage
+      const updatedRecordings = recordings.map(r =>
+        r.id === id ? { ...r, name: newName } : r
+      );
+      await AsyncStorage.setItem('records', JSON.stringify(updatedRecordings));
+
+      // Update local state
+      setRecordings(updatedRecordings);
+    } catch (error) {
+      console.error('Rename error:', error);
+      Alert.alert('Error', 'Failed to rename recording');
+    }
   };
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
 
   return (
     <View className="flex-1 bg-background p-4">
       <View className="flex-row justify-between items-center mb-6">
-        <View className="flex flex-row gap-2 items-center">
-          <TouchableOpacity onPress={handleBack}>
-            <MaterialCommunityIcons name="keyboard-backspace" size={40} color="grey" />
-          </TouchableOpacity>
-
-          <Image
-            source={require("../../assets/logo.png")}
-            resizeMode="contain"
-            className="h-8 w-32"
-          />
-        </View>
+        <Heading />
       </View>
 
       <View className="bg-white rounded-xl p-4 shadow-sm mb-6">
@@ -193,27 +229,27 @@ const AudioRecorder = () => {
       ) : (
         <FlatList
           data={recordings}
-          keyExtractor={(item) => item.uri}
+          keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View className="bg-white rounded-lg p-4 mb-3 shadow-sm">
               <View className="flex-row justify-between items-start mb-2">
                 <Text className="font-medium text-gray-800 flex-1 mr-2" numberOfLines={1}>
                   {item.name}
                 </Text>
-                <Text className="text-gray-500 text-sm">{item.date}</Text>
+                <Text className="text-gray-500 text-sm">{new Date(item.timestamp).toLocaleString()}</Text>
               </View>
               <View className="flex-row justify-between items-center">
                 <Text className="text-gray-500">{formatTime(item.duration)}</Text>
-                <View className="flex-row space-x-5">
+                <View className="flex-row gap-2">
                   <TouchableOpacity
                     className="bg-green-500 px-4 py-2 rounded-lg"
-                    onPress={() => playRecording(item.uri, item.name)}
+                    onPress={() => playRecording(item)}
                   >
                     <Ionicons name="play" size={16} color="white" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     className="bg-red-500 px-4 py-2 rounded-lg"
-                    onPress={() => deleteRecording(item.uri)}
+                    onPress={() => deleteRecording(item.id)}
                   >
                     <Ionicons name="trash-outline" size={16} color="white" />
                   </TouchableOpacity>
@@ -237,7 +273,15 @@ const AudioRecorder = () => {
 
 export default AudioRecorder;
 
-const TitleModal = ({ visible, onClose, title, onChangeTitle, onSave }) => (
+interface TitleModalProps {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  onChangeTitle: (text: string) => void;
+  onSave: () => void;
+}
+
+const TitleModal: React.FC<TitleModalProps> = ({ visible, onClose, title, onChangeTitle, onSave }) => (
   <Modal
     visible={visible}
     transparent={true}
@@ -254,7 +298,7 @@ const TitleModal = ({ visible, onClose, title, onChangeTitle, onSave }) => (
           onChangeText={onChangeTitle}
           autoFocus
         />
-        <View className="flex-row justify-end space-x-3">
+        <View className="flex-row justify-end space-x-3 gap-2">
           <TouchableOpacity
             className="px-4 py-2 rounded-lg bg-gray-200"
             onPress={onClose}

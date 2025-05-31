@@ -8,6 +8,14 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import * as Speech from 'expo-speech';
 import { RootStackParamList } from '../types/navigation';
 
+// Optional PDF viewer - wrapped in try/catch to prevent crashes
+let PDFView;
+try {
+  PDFView = require('react-native-view-pdf').PDFView;
+} catch (e) {
+  console.warn('PDF viewer not available:', e);
+}
+
 const DocumentViewer = () => {
     const route = useRoute<RouteProp<RootStackParamList, 'DocumentViewer'>>();
     const { fileUri, fileName, fileType } = route.params;
@@ -15,6 +23,7 @@ const DocumentViewer = () => {
     const [textContent, setTextContent] = useState('');
     const [loading, setLoading] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [pdfError, setPdfError] = useState(false);
     const navigation = useNavigation();
 
     useEffect(() => {
@@ -24,10 +33,10 @@ const DocumentViewer = () => {
                     const content = await FileSystem.readAsStringAsync(fileUri);
                     setTextContent(content);
                 } else if (fileType === 'application/pdf') {
-                    // For PDF, we'll just show a message - consider using react-native-pdf for actual rendering
-                    setTextContent(`PDF file: ${fileName}\n\nFor better PDF viewing, consider using a dedicated PDF viewer library.`);
-                } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-                    setTextContent(`DOCX file: ${fileName}\n\nFor DOCX viewing, consider using a document viewer library.`);
+                    // Just set empty content for PDF, we'll handle it separately
+                    setTextContent('');
+                } else {
+                    setTextContent(`File type: ${fileType}\n\nFor better viewing, consider using a dedicated viewer.`);
                 }
             } catch (error) {
                 Alert.alert('Error', 'Failed to read document content');
@@ -40,58 +49,12 @@ const DocumentViewer = () => {
         extractText();
 
         return () => {
-            // Stop any speech when component unmounts
             Speech.stop();
+            setIsSpeaking(false);
         };
     }, [fileUri, fileType, fileName]);
 
-    const handlePrint = async () => {
-        try {
-            await Print.printAsync({
-                html: `<html><body><pre>${textContent}</pre></body></html>`,
-                printerUrl: 'Select printer...'
-            });
-        } catch (error) {
-            Alert.alert('Error', 'Failed to print document');
-            console.error(error);
-        }
-    };
-
-    const handleShare = async () => {
-        try {
-            if (!(await Sharing.isAvailableAsync())) {
-                Alert.alert('Sharing not available on this platform');
-                return;
-            }
-
-            await Sharing.shareAsync(fileUri, {
-                dialogTitle: 'Share Document',
-                mimeType: fileType,
-                UTI: fileType
-            });
-        } catch (error) {
-            Alert.alert('Error', 'Failed to share document');
-            console.error(error);
-        }
-    };
-
-    const toggleTextToSpeech = () => {
-        if (isSpeaking) {
-            Speech.stop();
-            setIsSpeaking(false);
-        } else {
-            if (textContent) {
-                setIsSpeaking(true);
-                Speech.speak(textContent, {
-                    onDone: () => setIsSpeaking(false),
-                    onStopped: () => setIsSpeaking(false),
-                    onError: () => setIsSpeaking(false)
-                });
-            } else {
-                Alert.alert('No content', 'There is no text content to read');
-            }
-        }
-    };
+    // ... (keep your existing handlePrint, handleShare, toggleTextToSpeech functions)
 
     if (loading) {
         return (
@@ -109,7 +72,7 @@ const DocumentViewer = () => {
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <MaterialIcons name="arrow-back" size={24} color="#3b82f6" />
                 </TouchableOpacity>
-                <Text className="text-lg font-semibold text-gray-800" numberOfLines={1} ellipsizeMode="middle">
+                <Text className="text-lg font-semibold text-gray-800 flex-1 mx-2" numberOfLines={1}>
                     {fileName}
                 </Text>
                 <View className="flex-row space-x-4">
@@ -123,28 +86,56 @@ const DocumentViewer = () => {
             </View>
 
             {/* Document Content */}
-            <ScrollView className="flex-1 bg-white p-4 rounded-lg mb-4">
-                <Text className="text-gray-800" selectable>
-                    {textContent || 'No content available'}
-                </Text>
-            </ScrollView>
+            {fileType === 'application/pdf' ? (
+                PDFView ? (
+                    <View className="flex-1 bg-white rounded-lg mb-4 overflow-hidden">
+                        <PDFView
+                            style={{ flex: 1 }}
+                            resource={fileUri}
+                            resourceType="file"
+                            onError={(error) => {
+                                console.error('PDF Error:', error);
+                                setPdfError(true);
+                            }}
+                        />
+                        {pdfError && (
+                            <View className="absolute inset-0 justify-center items-center bg-white/90">
+                                <Text className="text-red-500">Failed to load PDF</Text>
+                            </View>
+                        )}
+                    </View>
+                ) : (
+                    <View className="flex-1 justify-center items-center bg-white rounded-lg mb-4">
+                        <Text className="text-gray-600">PDF viewer not available</Text>
+                        <Text className="text-gray-500 mt-2">Install react-native-view-pdf to view PDFs</Text>
+                    </View>
+                )
+            ) : (
+                <ScrollView className="flex-1 bg-white p-4 rounded-lg mb-4">
+                    <Text className="text-gray-800" selectable>
+                        {textContent || 'No content available'}
+                    </Text>
+                </ScrollView>
+            )}
 
-            {/* Text-to-Speech Button */}
-            <TouchableOpacity 
-                className={`px-6 py-3 rounded-full flex-row justify-center items-center ${
-                    isSpeaking ? 'bg-red-500' : 'bg-blue-500'
-                }`}
-                onPress={toggleTextToSpeech}
-            >
-                <MaterialIcons 
-                    name={isSpeaking ? 'stop' : 'volume-up'} 
-                    size={20} 
-                    color="white" 
-                />
-                <Text className="text-white ml-2">
-                    {isSpeaking ? 'Stop Reading' : 'Read Aloud'}
-                </Text>
-            </TouchableOpacity>
+            {/* Text-to-Speech Button - Only show for text files */}
+            {fileType === 'text/plain' && textContent && (
+                <TouchableOpacity 
+                    className={`px-6 py-3 rounded-full flex-row justify-center items-center ${
+                        isSpeaking ? 'bg-red-500' : 'bg-blue-500'
+                    }`}
+                    onPress={toggleTextToSpeech}
+                >
+                    <MaterialIcons 
+                        name={isSpeaking ? 'stop' : 'volume-up'} 
+                        size={20} 
+                        color="white" 
+                    />
+                    <Text className="text-white ml-2">
+                        {isSpeaking ? 'Stop Reading' : 'Read Aloud'}
+                    </Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 };

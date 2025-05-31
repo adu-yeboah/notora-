@@ -26,8 +26,11 @@ export type RootStackParamList = {
   };
   Recorder: undefined;
   AudioPlayer: {
-    audioUri: string;
-    title?: string;
+    route: {
+      id: string,
+      uri: string,
+      
+    }
   };
   SlideImporter: undefined;
   Settings: undefined;

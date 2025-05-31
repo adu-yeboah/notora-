@@ -20,6 +20,7 @@
     "expo-audio": "~0.4.5",
     "expo-document-picker": "~13.1.5",
     "expo-file-system": "~18.1.10",
+    "expo-print": "~14.1.4",
     "expo-sharing": "~13.1.5",
     "expo-speech": "~13.1.7",
     "expo-sqlite": "~15.2.10",
@@ -31,14 +32,16 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
+    "react-native-uuid": "^2.0.3",
+    "react-native-view-pdf": "^0.14.0",
     "react-native-webview": "^13.13.5",
-    "tailwindcss": "3.4.17",
-    "expo-print": "~14.1.4"
+    "tailwindcss": "3.4.17"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
     "@types/react-native-html-to-pdf": "^0.8.3",
+    "@types/uuid": "^10.0.0",
     "typescript": "~5.8.3"
   },
   "private": true

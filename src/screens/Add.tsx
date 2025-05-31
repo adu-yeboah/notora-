@@ -6,6 +6,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import Heading from '../components/ui/heading';
 
 // 1. Define your root stack param list
 type RootStackParamList = {
@@ -32,12 +33,12 @@ export default function Add() {
   const pickDocument = async () => {
     console.log('Starting document picker...');
     setIsLoading(true);
-    
+
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: [
           'application/pdf',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'text/plain',
         ],
         copyToCacheDirectory: true,
@@ -47,7 +48,7 @@ export default function Add() {
 
       if (!result.canceled && result.assets?.length) {
         const file = result.assets[0];
-        
+
         // Validate file size
         if (file.size && file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
           Alert.alert('Error', `File size exceeds ${MAX_FILE_SIZE_MB}MB limit`);
@@ -55,13 +56,13 @@ export default function Add() {
         }
 
         let fileUri = file.uri;
-        
+
         // Handle Android content URIs
         if (Platform.OS === 'android' && fileUri.startsWith('content://')) {
           try {
             const cacheDir = FileSystem.cacheDirectory;
             const newPath = `${cacheDir}${file.name}`;
-            
+
             await FileSystem.copyAsync({
               from: fileUri,
               to: newPath,
@@ -94,24 +95,12 @@ export default function Add() {
     }
   };
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
 
   return (
     <View className="flex-1 bg-background p-4">
       {/* Header with Back Button and Logo */}
       <View className="flex-row justify-between items-center mb-6">
-        <View className="flex flex-row gap-2 items-center">
-          <TouchableOpacity onPress={handleBack}>
-            <MaterialCommunityIcons name="keyboard-backspace" size={40} color="grey" />
-          </TouchableOpacity>
-          <Image
-            source={require("../../assets/logo.png")}
-            resizeMode="contain"
-            className="h-8 w-32"
-          />
-        </View>
+        <Heading />
       </View>
 
       {/* Action Buttons Grid */}

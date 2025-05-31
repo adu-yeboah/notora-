@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, Image } from 'react-native';
-import { getNotes } from '../utils/storage';
+import { getNotes, getRecords } from '../utils/storage';
 import { Ionicons } from '@expo/vector-icons';
 import NoteItem from '../components/noteItem';
 import { NoteType } from '../types/note';
@@ -17,6 +17,7 @@ const Home= () => {
     try {
       setRefreshing(true);
       const allNotes = await getNotes();
+      const allRecords = await getRecords()
       setNotes(allNotes);
     } catch (error) {
       console.error('Error loading notes:', error);

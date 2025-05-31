@@ -1,4 +1,3 @@
-// Debounce utility function
 export const debounce = (func: (...args: any[]) => void, wait: number) => {
   let timeout: NodeJS.Timeout | null = null;
   return (...args: any[]) => {
