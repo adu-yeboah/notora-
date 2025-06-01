@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
+
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Modal, TextInput, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
-// import Slider from '../components/slider';
 import Heading from '../components/ui/heading';
 import { deleteRecord } from '../utils/storage';
 import { useNavigation } from '@react-navigation/native';
@@ -11,69 +11,84 @@ import Slider from '@react-native-community/slider';
 
 interface AudioPlayerProps {
   route: {
-    params: RecordType
+    params: RecordType;
   };
 }
 
 const AudioPlayer = ({ route }: AudioPlayerProps) => {
   const { uri, name, id } = route.params;
-  const navigation = useNavigation()
-
-  const player = useAudioPlayer({ uri });
+  const navigation = useNavigation();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(player.duration);
-  const [playbackRate, setPlaybackRate] = useState(1.0);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [newName, setNewName] = useState(name);
   const [isLoading, setIsLoading] = useState(true);
-
   const [isSeeking, setIsSeeking] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
 
-  
-  // Initialize player and set up listeners
-  useMemo(() => {
+  // Validate URI and initialize player at top level
+  // if (!uri || typeof uri !== 'string') {
+  //   console.error('Invalid URI:', uri);
+  //   Alert.alert('Error', 'Invalid audio source provided. URI must be a string.');
+  //   return (
+  //     <View className="flex-1 bg-background p-4 justify-center items-center">
+  //       <Text>Invalid audio source</Text>
+  //     </View>
+  //   );
+  // }
+
+  const player = useAudioPlayer(uri);
+
+  // Initialize player and set duration
+  useEffect(() => {
     const initializePlayer = async () => {
+      if (!player) {
+        setIsLoading(false);
+        return;
+      }
       try {
-        setDuration(player.duration);
+        if (!player.isLoaded) {
+          await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay to ensure player readiness
+        }
+        setDuration(player.duration || 0);
         setIsLoading(false);
       } catch (error) {
         console.error('Player initialization error:', error);
         Alert.alert('Error', 'Failed to initialize audio player');
+        setIsLoading(false);
       }
     };
-
     initializePlayer();
+  }, [player]);
 
+  // Update playback position
+  useEffect(() => {
     const updateInterval = setInterval(() => {
-      if (player.playing) {
-        setPosition(player.currentTime);
+      if (player && player.playing && !isSeeking) {
+        setPosition(player.currentTime || 0);
       }
     }, 250);
 
-    return () => {
-      clearInterval(updateInterval);
-      player.release();
-    };
-  }, []);
+    return () => clearInterval(updateInterval);
+  }, [player, isPlaying, isSeeking]);
 
-  // Handle playback state changes
+  // Sync playing state
   useEffect(() => {
-    console.log("j");
+    if (player) {
+      setIsPlaying(player.playing);
+    }
+  }, [player?.playing]);
 
-    setIsPlaying(player.playing);
-  }, [player.playing]);
-
-
-  const togglePlayback = () => {
+  const togglePlayback = async () => {
+    if (!player || !player.isLoaded) return;
     try {
       if (player.playing) {
-        player.pause();
+        await player.pause();
       } else {
-        player.play();
+        await player.play();
       }
       setIsPlaying(!isPlaying);
-
     } catch (error) {
       console.error('Playback error:', error);
       Alert.alert('Error', 'Failed to toggle playback');
@@ -81,6 +96,7 @@ const AudioPlayer = ({ route }: AudioPlayerProps) => {
   };
 
   const handleSeek = async (value: number) => {
+    if (!player || !player.isLoaded) return;
     try {
       await player.seekTo(value);
       setPosition(value);
@@ -90,6 +106,7 @@ const AudioPlayer = ({ route }: AudioPlayerProps) => {
       }
     } catch (error) {
       console.error('Seek error:', error);
+      Alert.alert('Error', 'Failed to seek audio');
     }
   };
 
@@ -98,21 +115,21 @@ const AudioPlayer = ({ route }: AudioPlayerProps) => {
     setPosition(value);
   };
 
-  const handleSliderSlidingStart = () => {
+  const handleSliderSlidingStart = async () => {
     setIsSeeking(true);
-    if (isPlaying) {
-      player.pause();
+    if (player && isPlaying && player.isLoaded) {
+      await player.pause();
     }
   };
 
-
-
   const changePlaybackRate = async (rate: number) => {
+    if (!player || !player.isLoaded) return;
     try {
-      await player.setPlaybackRate(rate);
+      await player.setPlaybackRate(rate, 'medium');
       setPlaybackRate(rate);
     } catch (error) {
       console.error('Playback rate error:', error);
+      Alert.alert('Error', 'Failed to change playback rate');
     }
   };
 
@@ -147,7 +164,7 @@ const AudioPlayer = ({ route }: AudioPlayerProps) => {
       Alert.alert('Error', 'Please enter a valid name');
       return;
     }
-
+    // Implement updateRecord logic here
     // try {
     //   await updateRecord(id, { name: newName });
     //   setShowRenameModal(false);
@@ -166,22 +183,34 @@ const AudioPlayer = ({ route }: AudioPlayerProps) => {
     );
   }
 
+  if (!player || !player.isLoaded) {
+    return (
+      <View className="flex-1 bg-background p-4 justify-center items-center">
+        <Text>Failed to load audio player</Text>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-background p-4">
       <Heading />
       <View className="bg-secondary rounded-xl p-6 mb-8 flex-1">
-        <Text className="text-2xl font-bold text-center mb-2" numberOfLines={1}>
+        <Text className="text-2xl text-text font-bold text-center mb-2" numberOfLines={1}>
           {name}
         </Text>
 
-        <View className="h-24 bg-gray-100 rounded-lg my-6 justify-center items-center">
-          <Text className="text-gray-500">Waveform Visualization</Text>
+        <View className="rounded-lg max-h-min my-6 justify-center items-center flex-auto">
+          <Image
+            source={require("../../assets/player.png")} 
+            className="h-32 w-32"
+            resizeMode="contain"
+            />
         </View>
 
         <View className="mb-4">
           <View className="flex-row justify-between mb-1">
-            <Text>{formatTime(position)}</Text>
-            <Text>{formatTime(duration)}</Text>
+            <Text className='text-secondaryText'>{formatTime(position)}</Text>
+            <Text className='text-secondaryText'>{formatTime(duration)}</Text>
           </View>
           <Slider
             value={position}
@@ -221,7 +250,7 @@ const AudioPlayer = ({ route }: AudioPlayerProps) => {
         </View>
       </View>
 
-      <View className="flex-row justify-around">
+      <View className="flex-row justify-around flex-1">
         <TouchableOpacity
           className="flex items-center"
           onPress={() => setShowRenameModal(true)}
@@ -248,7 +277,7 @@ const AudioPlayer = ({ route }: AudioPlayerProps) => {
       />
     </View>
   );
-}
+};
 
 interface RenameModalProps {
   visible: boolean;
@@ -256,7 +285,7 @@ interface RenameModalProps {
   name: string;
   onChangeName: (text: string) => void;
   onSave: () => void;
-};
+}
 
 const RenameModal = ({ visible, onClose, name, onChangeName, onSave }: RenameModalProps) => (
   <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>

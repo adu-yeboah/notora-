@@ -23,6 +23,7 @@ export const getNotes = async (): Promise<NoteType[]> => {
   }
 };
 
+//
 export const deleteNote = async (noteId: string): Promise<void> => {
   try {
     const notes = await getNotes();
@@ -32,7 +33,6 @@ export const deleteNote = async (noteId: string): Promise<void> => {
     console.error('Error deleting note:', e);
   }
 };
-
 
 export const saveRecord = async (record: RecordType): Promise<void> => {
   try {
@@ -44,6 +44,7 @@ export const saveRecord = async (record: RecordType): Promise<void> => {
   }
 }
 
+// Retrieve all records from AsyncStorage
 export const getRecords = async (): Promise<RecordType[]> => {
   try {
     const records = await AsyncStorage.getItem("records");
@@ -54,6 +55,7 @@ export const getRecords = async (): Promise<RecordType[]> => {
   }
 }
 
+// Delete a record by its ID
 export const deleteRecord = async (recordId: string): Promise<void> => {
   try {
     const records = await getRecords();
@@ -64,11 +66,19 @@ export const deleteRecord = async (recordId: string): Promise<void> => {
   }
 };
 
-export const renameRecord = async (recordId: string): Promise<void> => {
+
+// Rename a record by its ID
+export const renameRecord = async (rec: RecordType): Promise<void> => {
   try {
     const records = await getRecords();
-    const updatedRecords = records.filter(record => record.id == recordId);
+    const updatedRecords = records.map(record => {
+      if (record.id === rec.id) {
+        return { ...record, name: rec.name };
+      }
+      return record;
+    });
+    await AsyncStorage.setItem('records', JSON.stringify(updatedRecords));
   } catch (error) {
-
+    console.error('Error deleting record:', error);
   }
 }
