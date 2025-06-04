@@ -10,7 +10,7 @@ import { deleteRecord, getRecords, saveRecord } from '../utils/storage';
 import Heading from '../components/ui/heading';
 import RecordCard from '../components/recordCard';
 
-interface RecordingData {
+export interface RecordingData {
   id: string;
   uri: string;
   name: string;
