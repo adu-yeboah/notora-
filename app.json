@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "notora",
+    "name": "Notora",
     "slug": "notora",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -27,8 +27,6 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.aduyeboah.notora"
@@ -37,7 +35,6 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sqlite",
       [
         "expo-audio",
         {
@@ -45,6 +42,10 @@
         }
       ]
     ],
-    "fastRefresh": true
+    "extra": {
+      "eas": {
+        "projectId": "847e2e74-f783-4271-a9de-d4858ed8c399"
+      }
+    }
   }
 }

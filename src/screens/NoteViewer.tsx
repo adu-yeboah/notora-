@@ -2,13 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import * as Speech from 'expo-speech';
 import * as Audio from 'expo-audio';
-import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { deleteNote } from '../utils/storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import Slider from '@react-native-community/slider';
 
 const NoteViewer = ({ route }) => {
   const { note } = route.params || {};
