@@ -132,7 +132,8 @@ export default function Add() {
           onPress={pickDocument}
           className="w-[48%] bg-white rounded-xl p-6 mb-4 shadow-lg items-center border border-border relative"
           activeOpacity={0.7}
-          disabled={isLoading}
+          // disabled={isLoading}
+          disabled={true}
         >
           {isLoading && (
             <View className="absolute inset-0 bg-black/20 rounded-xl justify-center items-center">

@@ -6,6 +6,7 @@ import NoteItem from '../components/noteItem';
 import { NoteType, RecordType } from '../types/note';
 import { useNavigation } from '@react-navigation/native';
 import RecordCard from '../components/recordCard';
+import { RecordingData } from './Recorder';
 
 const Home = () => {
   const [notes, setNotes] = useState<NoteType[]>([]);
@@ -44,8 +45,12 @@ const Home = () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const playRecording = (item: RecordType) => {
-    navigation.navigate('AudioPlayer', item);
+  const playRecording = (recording: RecordingData) => {
+    navigation.navigate('AudioPlayer', {
+      uri: recording.uri,
+      name: recording.name,
+      id: recording.id
+    });
   };
 
   const deleteRecording = async (id: string ) => {
@@ -191,12 +196,7 @@ const Home = () => {
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          className="bg-green-500 rounded-full p-4 shadow-lg"
-          onPress={() => navigation.navigate('Recorder' as never)}
-        >
-          <Ionicons name="mic" size={28} color="#fff" />
-        </TouchableOpacity>
+       
       </View>
     </View>
   );

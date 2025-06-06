@@ -68,12 +68,12 @@ export const deleteRecord = async (recordId: string): Promise<void> => {
 
 
 // Rename a record by its ID
-export const renameRecord = async (rec: RecordType): Promise<void> => {
+export const renameRecord = async (id: string, name: { name: string; }): Promise<void> => {
   try {
     const records = await getRecords();
     const updatedRecords = records.map(record => {
-      if (record.id === rec.id) {
-        return { ...record, name: rec.name };
+      if (record.id === id) {
+        return { ...record, name: name.name };
       }
       return record;
     });
