@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Alert, Image, TextInput, Modal } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { useAudioRecorder, RecordingPresets, AudioModule } from 'expo-audio';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +19,7 @@ export interface RecordingData {
 }
 
 const AudioRecorder = () => {
+  
   const [recordings, setRecordings] = useState<RecordingData[]>([]);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -29,6 +30,23 @@ const AudioRecorder = () => {
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const navigation = useNavigation();
+
+
+  // Request Permission
+  useEffect(() => {
+    const checkPermissions = async () => {
+      const { status } = await AudioModule.getRecordingPermissionsAsync();
+      if (status !== 'granted') {
+        const { granted } = await AudioModule.requestRecordingPermissionsAsync();
+        if (!granted) {
+          Alert.alert('Permission to access microphone was denied');
+        }
+      }
+    };
+
+    checkPermissions();
+  }, []);
+
 
 
   useMemo(() => {
@@ -43,14 +61,6 @@ const AudioRecorder = () => {
 
     loadRecordings();
 
-    // Request Permission
-    const requestPermissions = async () => {
-      const status = await AudioModule.getRecordingPermissionsAsync();
-      if (!status.granted) {
-        Alert.alert('Permission Denied', 'Microphone access is required.');
-      }
-    };
-    requestPermissions();
 
     return () => {
       const cleanup = async () => {
@@ -92,7 +102,7 @@ const AudioRecorder = () => {
     try {
       await ensureDirExists();
       await recorder.prepareToRecordAsync();
-      await recorder.record();
+      recorder.record();
       setIsRecording(true);
       setRecordingTime(0);
       timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
@@ -146,7 +156,7 @@ const AudioRecorder = () => {
 
       // Save to AsyncStorage
       await saveRecord(newRecording)
-      
+
 
       setRecordingTitle('');
       setNewRecordingUri(null);
@@ -232,7 +242,7 @@ const AudioRecorder = () => {
           data={recordings}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <RecordCard item={item} playRecording={playRecording} deleteRecording={deleteRecord} format={formatTime}/>
+            <RecordCard item={item} playRecording={playRecording} deleteRecording={deleteRecord} format={formatTime} />
           )}
         />
       )}

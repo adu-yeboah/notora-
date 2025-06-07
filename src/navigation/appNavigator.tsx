@@ -2,7 +2,6 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Home from "../screens/Home";
 import NoteViewer from "../screens/NoteViewer";
 import Recorder from "../screens/Recorder";
-import SlideImporter from "../screens/SlideImporter";
 import Settings from "../screens/Settings";
 import NoteEditor from "../screens/NoteEditor";
 import Add from "../screens/Add";
@@ -24,7 +23,6 @@ export default function AppNavigator() {
             <Stack.Screen name="NoteViewer" component={NoteViewer} />
             <Stack.Screen name="Recorder" component={Recorder} />
             <Stack.Screen name="AudioPlayer" component={AudioPlayer} />
-            <Stack.Screen name="SlideImporter" component={SlideImporter} />
             <Stack.Screen name="Settings" component={Settings} />
             <Stack.Screen name="Add" component={Add} />
         </Stack.Navigator>
